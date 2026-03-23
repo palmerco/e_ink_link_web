@@ -495,6 +495,7 @@
                 const d = await r.json();
                 locationName = d.address.city || d.address.town || d.address.village || d.address.county || "";
                 document.getElementById("w-loc").textContent = locationName;
+                publishConfig({ location_name: locationName });
                 renderEink();
             } catch(e) {}
         }
@@ -531,12 +532,17 @@
             }
         }
 
+        function publishConfig(obj) {
+            if (client.connected) client.publish(TOPIC, "CFG:" + JSON.stringify(obj));
+        }
+
         function getLocation() {
             if (!navigator.geolocation) return;
             navigator.geolocation.getCurrentPosition(pos => {
                 coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
                 fetchWeather(coords.lat, coords.lon);
                 reverseGeocode(coords.lat, coords.lon);
+                publishConfig({ lat: coords.lat, lon: coords.lon });
             }, () => {
                 document.getElementById("w-cond").textContent = "Location denied";
             });
@@ -878,8 +884,11 @@
         document.getElementById("origin").value      = localStorage.getItem("eink_origin") || "";
         document.getElementById("destination").value = localStorage.getItem("eink_dest")   || "";
         document.getElementById("save-btn").addEventListener("click", () => {
-            localStorage.setItem("eink_origin", document.getElementById("origin").value.trim());
-            localStorage.setItem("eink_dest",   document.getElementById("destination").value.trim());
+            const origin = document.getElementById("origin").value.trim();
+            const dest   = document.getElementById("destination").value.trim();
+            localStorage.setItem("eink_origin", origin);
+            localStorage.setItem("eink_dest",   dest);
+            publishConfig({ commute_origin: origin, commute_dest: dest });
             fetchCommute();
         });
 
@@ -904,6 +913,7 @@
                 teamName = t.shortDisplayName || t.displayName;
                 localStorage.setItem("eink_team_id",   teamId);
                 localStorage.setItem("eink_team_name", teamName);
+                publishConfig({ team: teamName, league: teamLeague });
                 statusEl.textContent = `Found: ${t.displayName}`;
                 statusEl.style.color = "#4ade80";
                 fetchTeamGames();
