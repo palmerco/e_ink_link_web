@@ -296,15 +296,7 @@
             <div class="push-card">
                 <div class="push-row">
                     <button id="push-btn" disabled>Push to Display</button>
-                    <select id="interval-select">
-                        <option value="1">1 min</option>
-                        <option value="5">5 min</option>
-                        <option value="15" selected>15 min</option>
-                        <option value="30">30 min</option>
-                        <option value="60">1 hr</option>
-                    </select>
                 </div>
-                <div id="countdown">Next push in --:--</div>
 
                 <details>
                     <summary>Commute settings</summary>
@@ -377,53 +369,30 @@
             const msg = payload.toString();
             if (msg.startsWith("IMG:")) return;
             if (msg === "HEARTBEAT") return;
-
-            // Signal from test page: image was pushed, return to dashboard after e-ink refresh completes
-            if (msg === "CMD:RETURN") {
-                clearTimeout(returnTimer);
-                nextPushMs = Date.now() + 60000; // block auto-push during wait
-                returnTimer = setTimeout(() => { renderEink(); sendImage(); nextPushMs = Date.now() + getIntervalMs(); }, 5000);
+            if (msg === "PUSHING") {
+                pushBtn.disabled = true;
+                setTimeout(() => { pushBtn.disabled = !client.connected; }, 5000);
                 return;
             }
 
-            // Signal from test page: message already pushed as image, just update card + return
+            // Signal from test page: image pushed, server handles return
+            if (msg === "CMD:RETURN") return;
+
+            // Signal from test page: text pushed as image, just update Last Message card
             if (msg.startsWith("TXT:")) {
                 const text = msg.slice(4);
                 lastMessage = text;
                 const el = document.getElementById("w-message");
                 el.textContent = text;
                 el.style.color = "#fff";
-                clearTimeout(returnTimer);
-                nextPushMs = Date.now() + 60000; // block auto-push during wait
-                returnTimer = setTimeout(() => { renderEink(); sendImage(); nextPushMs = Date.now() + getIntervalMs(); }, 5000);
                 return;
             }
-            lastMessage = msg;
-            const el = document.getElementById("w-message");
-            el.textContent = msg;
-            el.style.color = "#fff";
-
-            // Render centered full-screen message and push to display
-            renderMessage(msg);
-            nextPushMs = Date.now() + 60000; // block auto-push during message display
-            sendImage();
-
-            // Return to dashboard after 5 seconds
-            clearTimeout(returnTimer);
-            returnTimer = setTimeout(() => {
-                renderEink();
-                sendImage();
-                nextPushMs = Date.now() + getIntervalMs();
-            }, 5000);
         });
 
         // ---- State ----
         let weatherTemp = "--", weatherCond = "", coords = null, locationName = "";
         let commuteText = "--", commuteSub  = "Set addresses below";
         let lastMessage = "";
-        let nextPushMs      = Date.now() + getIntervalMs();
-        let returnTimer     = null;
-        let lastSelfSendMs  = 0;
         let lastGame = null;   // { won, live, ourScore, theirScore, opponent }
         let nextGame = null;   // { opponent, dateStr }
         let teamId   = null;
@@ -897,40 +866,17 @@
             document.getElementById("countdown").textContent =
                 `Next push in ${rm}:${String(rs).padStart(2,"0")}`;
 
-            // Auto-push
-            if (Date.now() >= nextPushMs && client.connected) {
-                renderEink();
-                sendImage();
-                nextPushMs = Date.now() + getIntervalMs();
-            }
-
             renderEink();
         }
-
-        function getIntervalMs() {
-            const mins = parseInt(document.getElementById("interval-select").value) || 15;
-            localStorage.setItem("eink_interval", mins);
-            return mins * 60 * 1000;
-        }
-
-        document.getElementById("interval-select").addEventListener("change", () => {
-            nextPushMs = Date.now() + getIntervalMs();
-        });
 
         pushBtn.addEventListener("click", () => {
             renderEink();
             sendImage();
-            nextPushMs = Date.now() + getIntervalMs();
         });
 
         // ---- Settings ----
         document.getElementById("origin").value      = localStorage.getItem("eink_origin") || "";
         document.getElementById("destination").value = localStorage.getItem("eink_dest")   || "";
-        const saved = localStorage.getItem("eink_interval");
-        if (saved) {
-            for (const opt of document.getElementById("interval-select").options)
-                if (opt.value === saved) opt.selected = true;
-        }
         document.getElementById("save-btn").addEventListener("click", () => {
             localStorage.setItem("eink_origin", document.getElementById("origin").value.trim());
             localStorage.setItem("eink_dest",   document.getElementById("destination").value.trim());
@@ -976,7 +922,6 @@
         if (teamId) fetchTeamGames();
         renderEink();
         setInterval(tick, 1000);
-        setInterval(() => { if (client.connected) client.publish(TOPIC, "HEARTBEAT"); }, 30000);
         setInterval(() => {
             if (coords) fetchWeather(coords.lat, coords.lon);
             fetchCommute();
