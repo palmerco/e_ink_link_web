@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>e-ink Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="e-ink">
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -505,12 +509,11 @@
             if (c === 0)  return "Clear Sky";
             if (c <= 2)   return "Partly Cloudy";
             if (c === 3)  return "Overcast";
-            if (c <= 19)  return "Foggy";
-            if (c <= 49)  return "Drizzle";
+            if (c <= 49)  return "Foggy";
             if (c <= 59)  return "Drizzle";
             if (c <= 69)  return "Rain";
             if (c <= 79)  return "Snow";
-            if (c <= 84)  return "Rain Showers";
+            if (c <= 82)  return "Rain Showers";
             if (c <= 86)  return "Snow Showers";
             if (c <= 99)  return "Thunderstorm";
             return "Unknown";
@@ -836,7 +839,6 @@
         }
 
         async function sendImage() {
-            lastSelfSendMs = Date.now();
             const rc  = document.getElementById("render-canvas");
             const buf = packEink(rc);
             const b64 = toBase64(buf);
@@ -864,13 +866,6 @@
             document.getElementById("big-time").textContent = `${hr}:${min}:${sec} ${ampm}`;
             document.getElementById("big-date").textContent =
                 `${DAYS[now.getDay()]} ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
-
-            // Countdown
-            const rem = Math.max(0, nextPushMs - Date.now());
-            const rm = Math.floor(rem / 60000);
-            const rs = Math.floor((rem % 60000) / 1000);
-            document.getElementById("countdown").textContent =
-                `Next push in ${rm}:${String(rs).padStart(2,"0")}`;
 
             renderEink();
         }
