@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-ink Link</title>
+    <title>e-ink</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,536 +11,1179 @@
         body {
             font-family: system-ui, sans-serif;
             background: #f0f0f0;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+            padding: 28px 16px;
         }
 
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
+        .page {
             width: 100%;
-            max-width: 860px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            max-width: 520px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
 
-        h1 {
-            font-size: 1.4rem;
-            margin-bottom: 8px;
-            color: #111;
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+
+        h1 { font-size: 1rem; font-weight: 600; color: #111; letter-spacing: 0.02em; }
 
         #status {
-            font-size: 0.85rem;
-            margin-bottom: 24px;
-            padding: 6px 10px;
-            border-radius: 6px;
-            background: #f5f5f5;
-            color: #555;
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #e5e5e5;
+            color: #777;
         }
-
         #status.connected { background: #e6f4ea; color: #2d7a3a; }
         #status.error     { background: #fdecea; color: #c0392b; }
 
-        .layout {
+        /* Template picker */
+        .tpl-picker {
             display: flex;
-            gap: 28px;
-            align-items: flex-start;
+            gap: 8px;
         }
 
-        .form-col {
-            flex: 0 0 300px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .preview-col { flex: 1; }
-
-        .col-label {
-            font-size: 0.75rem;
-            color: #999;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-
-        /* Drop zone */
-        #drop-zone {
-            width: 100%;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 16px 12px;
-            text-align: center;
-            color: #aaa;
-            font-size: 0.85rem;
+        .tpl-btn {
+            width: 56px;
+            height: 42px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
             cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            margin-bottom: 10px;
+            padding: 5px;
+            transition: border-color 0.15s;
+            flex-shrink: 0;
         }
-        #drop-zone:hover, #drop-zone.drag-over {
-            border-color: #888;
-            background: #f8f8f8;
-            color: #555;
-        }
-        #drop-zone.has-image {
-            border-color: #111;
-            color: #111;
-            background: #f8f8f8;
-        }
-        #file-input { display: none; }
+        .tpl-btn.active       { border-color: #111; }
+        .tpl-btn:hover:not(.active) { border-color: #999; }
+        .tpl-btn svg          { width: 100%; height: 100%; display: block; }
 
-        #img-controls {
-            display: none;
-            margin-top: 10px;
-            margin-bottom: 10px;
+        /* Preview */
+        .preview-wrap {
+            position: relative;
+            border: 2px solid #bbb;
+            border-radius: 6px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         }
-        .slider-row {
+
+        .canvas-overlay-btn {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.45);
+            color: white;
+            border: none;
+            font-size: 0.8rem;
+            line-height: 1;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-            font-size: 0.8rem;
-            color: #555;
+            justify-content: center;
+            padding: 0;
+            transition: background 0.15s;
+            z-index: 10;
         }
-        .slider-row label { width: 70px; flex-shrink: 0; }
-        .slider-row input[type=range] { flex: 1; }
-        .slider-row span { width: 30px; text-align: right; font-size: 0.75rem; color: #999; }
+        .canvas-overlay-btn:hover:not(:disabled) { background: rgba(0,0,0,0.7); }
+        .canvas-overlay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        textarea {
+        #clear-all-btn { top: 6px; right: 6px; }
+
+        #undo-btn {
+            top: 6px;
+            left: 6px;
+            font-size: 1rem;
+            display: none;
+        }
+        #undo-btn.visible { display: flex; }
+
+        #preview {
+            display: block;
             width: 100%;
-            height: 120px;
+            height: auto;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .pill {
+            padding: 6px 13px;
+            font-size: 0.8rem;
+            background: #e8e8e8;
+            color: #444;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.12s;
+        }
+        .pill.active { background: #111; color: white; }
+        .pill:hover:not(.active):not(:disabled) { background: #ddd; }
+
+        .icon-btn {
+            padding: 5px 10px;
+            font-size: 0.78rem;
+            background: #efefef;
+            color: #333;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.12s;
+        }
+        .icon-btn.active { background: #111; color: white; border-color: #111; }
+        .icon-btn:hover:not(.active) { background: #e2e2e2; }
+
+        input[type=range] {
+            flex: 1;
+            accent-color: #111;
+            min-width: 0;
+        }
+
+        #caption-row { gap: 7px; }
+        #caption-row.hidden { display: none; }
+
+        .caption-wrap {
+            flex: 1;
+            min-width: 0;
             border: 1px solid #ddd;
             border-radius: 8px;
-            padding: 12px;
-            font-size: 1rem;
-            resize: vertical;
-            outline: none;
+            overflow: hidden;
+            background: white;
             transition: border-color 0.2s;
         }
-        textarea:focus { border-color: #555; }
-        textarea:disabled { background: #f5f5f5; color: #aaa; }
+        .caption-wrap:focus-within { border-color: #555; }
 
-        .meta {
+        .caption-toolbar {
             display: flex;
-            justify-content: flex-end;
-            font-size: 0.8rem;
-            color: #999;
-            margin-top: 6px;
-            margin-bottom: 16px;
+            align-items: center;
+            gap: 3px;
+            padding: 4px 6px;
+            border-bottom: 1px solid #eee;
+            background: #f7f7f7;
         }
 
-        button {
+        #font-select {
+            font-size: 0.75rem;
+            font-family: inherit;
+            border: none;
+            background: transparent;
+            color: #444;
+            cursor: pointer;
+            outline: none;
+            padding: 2px 2px;
+        }
+
+        .cap-tool-btn {
+            padding: 2px 6px;
+            font-size: 0.78rem;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            color: #444;
+            cursor: pointer;
+            line-height: 1.4;
+            transition: background 0.1s;
+        }
+        .cap-tool-btn:hover:not(:disabled) { background: #e2e2e2; }
+        .cap-tool-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .cap-tool-btn.active { background: #d0d0d0; font-weight: 700; }
+
+        .caption-body { position: relative; }
+
+        #caption {
             width: 100%;
-            padding: 12px;
+            padding: 7px 10px 20px 10px;
+            border: none;
+            outline: none;
+            font-size: 0.88rem;
+            font-family: inherit;
+            resize: none;
+            height: 52px;
+            background: transparent;
+            box-sizing: border-box;
+        }
+
+        #char-counter {
+            position: absolute;
+            bottom: 5px;
+            right: 8px;
+            font-size: 0.65rem;
+            color: #bbb;
+            pointer-events: none;
+            user-select: none;
+        }
+        #char-counter.warn { color: #e07b00; }
+        #char-counter.over { color: #c0392b; font-weight: 600; }
+
+        #send {
+            width: 100%;
+            padding: 11px;
             background: #111;
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
             transition: background 0.2s;
         }
-        button:hover:not(:disabled) { background: #333; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
+        #send:hover:not(:disabled) { background: #333; }
+        #send:disabled { background: #ccc; cursor: not-allowed; }
 
-        /* Preview */
-        .preview-frame {
-            border: 3px solid #888;
-            border-radius: 4px;
-            background: #e8e8e0;
-            padding: 6px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
-        }
+        #img-sliders { gap: 7px; }
+        #img-sliders.hidden { display: none; }
+        #img-sliders label { font-size: 0.75rem; color: #666; white-space: nowrap; }
+        #style-row.hidden { display: none; }
 
-        #preview-canvas {
-            display: block;
-            width: 100%;
-            background: white;
-        }
-
-        /* text mode: 300x400 virtual canvas */
-        #preview-canvas.text-mode { aspect-ratio: 300 / 400; }
-        /* image mode: 400x300 physical display */
-        #preview-canvas.image-mode { aspect-ratio: 400 / 300; }
-
-        .preview-dims {
-            text-align: center;
-            font-size: 0.7rem;
-            color: #aaa;
-            margin-top: 5px;
-        }
-
-        @media (max-width: 680px) {
-            .layout { flex-direction: column; }
-            .form-col { flex: none; width: 100%; }
-        }
+        #file-input  { display: none; }
+        #draw-source { display: none; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>e-ink Link</h1>
+<div class="page">
+    <header>
+        <h1>e-ink</h1>
         <div id="status">Connecting...</div>
-        <div class="layout">
-            <div class="form-col">
-                <!-- Image drop zone -->
-                <div class="col-label">Image</div>
-                <div id="drop-zone">Drop image or click to upload</div>
-                <input type="file" id="file-input" accept="image/*">
-                <div id="img-controls">
-                    <div class="slider-row">
-                        <label>Brightness</label>
-                        <input type="range" id="brightness" min="-100" max="100" value="0">
-                        <span id="brightness-val">0</span>
-                    </div>
-                    <div class="slider-row">
-                        <label>Contrast</label>
-                        <input type="range" id="contrast" min="50" max="200" value="100">
-                        <span id="contrast-val">1.0x</span>
-                    </div>
-                </div>
+    </header>
 
-                <!-- Text message -->
-                <div class="col-label">Message</div>
-                <textarea id="message" placeholder="Type your message..."></textarea>
-                <div class="meta"><span id="char-count">0 / 300</span></div>
-                <button id="send" disabled>Send to Display</button>
-            </div>
-            <div class="preview-col">
-                <div class="col-label">Preview</div>
-                <div class="preview-frame">
-                    <canvas id="preview-canvas" class="text-mode" width="300" height="400"></canvas>
-                </div>
-                <div class="preview-dims" id="preview-dims">300 x 400 (text, rotation 1)</div>
-            </div>
-        </div>
+    <!-- Template picker -->
+    <div class="tpl-picker">
+        <!-- T0: image top, caption bottom -->
+        <button class="tpl-btn active" data-tpl="0" title="Image top, caption bottom">
+            <svg viewBox="0 0 44 33" fill="none">
+                <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#e0e0e0" stroke="#bbb"/>
+                <rect x=".5" y=".5" width="43" height="21" rx="2" fill="#c8c8c8"/>
+                <line x1="0" y1="21.5" x2="44" y2="21.5" stroke="#bbb"/>
+            </svg>
+        </button>
+        <!-- T1: image left, caption right -->
+        <button class="tpl-btn" data-tpl="1" title="Image left, caption right">
+            <svg viewBox="0 0 44 33" fill="none">
+                <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#e0e0e0" stroke="#bbb"/>
+                <rect x=".5" y=".5" width="28" height="32" rx="2" fill="#c8c8c8"/>
+                <line x1="28.5" y1="0" x2="28.5" y2="33" stroke="#bbb"/>
+            </svg>
+        </button>
+        <!-- T2: full screen -->
+        <button class="tpl-btn" data-tpl="2" title="Full screen">
+            <svg viewBox="0 0 44 33" fill="none">
+                <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#c8c8c8" stroke="#bbb"/>
+            </svg>
+        </button>
     </div>
 
-    <script>
-        const TOPIC       = "e_ink_link/message/675072780505b8dc19b65928";
-        const CHUNK_BYTES = 3000;    // raw bytes per chunk
-        const TOTAL_CHUNKS = 5;      // 5 x 3000 = 15000 bytes
+    <!-- Preview canvas (also the draw surface) -->
+    <div class="preview-wrap">
+        <canvas id="preview" width="400" height="300"></canvas>
+        <button id="undo-btn"      class="canvas-overlay-btn visible" title="Undo (Ctrl+Z)" disabled>&#x21A9;</button>
+        <button id="clear-all-btn" class="canvas-overlay-btn" title="Clear all">&#x2715;</button>
+    </div>
 
-        const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
-            clientId: "e_ink_web_" + Math.random().toString(16).slice(2, 8)
-        });
+    <!-- Controls -->
+    <div class="controls">
+        <div class="row" id="mode-row">
+            <button class="pill active" id="mode-draw">Draw</button>
+            <button class="pill" id="eraser-btn">Eraser</button>
+            <input type="range" id="brush-size" min="2" max="30" value="6" style="flex:1">
+            <button class="pill" id="mode-upload">Upload</button>
+            <input type="file" id="file-input" accept="image/*">
+            <button class="icon-btn" id="clear-btn">Clear</button>
+        </div>
 
-        const statusEl   = document.getElementById("status");
-        const sendBtn    = document.getElementById("send");
-        const msgInput   = document.getElementById("message");
-        const charCount  = document.getElementById("char-count");
-        const dropZone   = document.getElementById("drop-zone");
-        const fileInput  = document.getElementById("file-input");
-        const canvas     = document.getElementById("preview-canvas");
-        const ctx        = canvas.getContext("2d");
-        const dimsEl     = document.getElementById("preview-dims");
+        <div class="row hidden" id="img-sliders">
+            <label>Brightness</label>
+            <input type="range" id="brightness" min="-100" max="100" value="0">
+            <label>Contrast</label>
+            <input type="range" id="contrast" min="50" max="300" value="100">
+            <button class="icon-btn" id="auto-btn">Auto</button>
+        </div>
+        <div class="row hidden" id="style-row">
+            <button class="icon-btn" data-dither="fs">Floyd-S</button>
+            <button class="icon-btn active" data-dither="atkinson">Atkinson</button>
+            <button class="icon-btn" data-dither="bayer">Bayer</button>
+        </div>
 
-        // ---- MQTT ----
-        client.on("connect", () => {
-            statusEl.textContent = "Connected";
-            statusEl.className = "connected";
-            sendBtn.disabled = false;
-        });
-        client.on("error", () => {
-            statusEl.textContent = "Connection error";
-            statusEl.className = "error";
-            sendBtn.disabled = true;
-        });
-        client.on("close", () => {
-            statusEl.textContent = "Disconnected -- reconnecting...";
-            statusEl.className = "";
-            sendBtn.disabled = true;
-        });
+        <div class="row" id="caption-row">
+            <div class="caption-wrap">
+                <div class="caption-toolbar">
+                    <select id="font-select">
+                        <option value="sans">Sans</option>
+                        <option value="serif">Serif</option>
+                        <option value="mono">Mono</option>
+                        <option value="impact">Impact</option>
+                    </select>
+                    <button class="cap-tool-btn" id="bold-btn" title="Bold">B</button>
+                    <button class="cap-tool-btn" id="size-up"   title="Increase font size"><span style="font-size:1rem;font-weight:600">A</span><span style="font-size:0.5rem;vertical-align:super">▲</span></button>
+                    <button class="cap-tool-btn" id="size-down" title="Decrease font size"><span style="font-size:0.75rem;font-weight:600">A</span><span style="font-size:0.5rem;vertical-align:super">▼</span></button>
+                </div>
+                <div class="caption-body">
+                    <textarea id="caption" placeholder="Caption..."></textarea>
+                    <span id="char-counter"></span>
+                </div>
+            </div>
+        </div>
 
-        function setTextMode() {
-            canvas.width = 400;
-            canvas.height = 300;
-            canvas.className = "image-mode";
-            dimsEl.textContent = "400 x 300 (image)";
+        <button id="send" disabled>Send to Display</button>
+    </div>
+</div>
+
+<!-- Hidden canvas stores the image/draw zone content at full 400x300 -->
+<canvas id="draw-source" width="400" height="300"></canvas>
+
+<script>
+    const TOPIC        = "e_ink_link/message/675072780505b8dc19b65928";
+    const CHUNK_BYTES  = 3000;
+    const TOTAL_CHUNKS = 5;
+
+    const splits    = [220, 280];
+    const SPLIT_MIN = [80,  100];
+    const SPLIT_MAX = [240, 320];
+
+    function getTemplate(idx) {
+        if (idx === 0) {
+            const y = splits[0];
+            return { img: {x:0, y:0, w:400, h:y}, cap: {x:0, y:y+1, w:400, h:300-y-1} };
         }
-
-        function setImageMode() {
-            canvas.width = 400;
-            canvas.height = 300;
-            canvas.className = "image-mode";
-            dimsEl.textContent = "400 x 300 (image, physical)";
+        if (idx === 1) {
+            const x = splits[1];
+            return { img: {x:0, y:0, w:x, h:300}, cap: {x:x+1, y:0, w:400-x-1, h:300} };
         }
+        return { img: {x:0, y:0, w:400, h:300}, cap: null };
+    }
 
-        let lastSent = "";
-        let pendingImage = null; // Uint8Array[15000] when image loaded
-        let rawGray = null;     // Float32Array[120000] - auto-leveled grayscale
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
+        clientId: "e_ink_web_" + Math.random().toString(16).slice(2, 8)
+    });
 
-        const brightnessSlider = document.getElementById("brightness");
-        const contrastSlider   = document.getElementById("contrast");
-        const brightnessVal    = document.getElementById("brightness-val");
-        const contrastVal      = document.getElementById("contrast-val");
-        const imgControls      = document.getElementById("img-controls");
+    const statusEl  = document.getElementById("status");
+    const sendBtn   = document.getElementById("send");
+    const preview   = document.getElementById("preview");
+    const pCtx      = preview.getContext("2d");
+    const drawSrc   = document.getElementById("draw-source");
+    const dCtx      = drawSrc.getContext("2d");
+    const captionEl = document.getElementById("caption");
+    const fileInput = document.getElementById("file-input");
+    const eraserBtn   = document.getElementById("eraser-btn");
+    const brushSize   = document.getElementById("brush-size");
+    const clearBtn    = document.getElementById("clear-btn");
+    const imgSliders   = document.getElementById("img-sliders");
+    const brightnessEl = document.getElementById("brightness");
+    const contrastEl   = document.getElementById("contrast");
+    const autoBtn      = document.getElementById("auto-btn");
+    const styleRow     = document.getElementById("style-row");
+    const undoBtn      = document.getElementById("undo-btn");
 
-        brightnessSlider.addEventListener("input", () => {
-            brightnessVal.textContent = brightnessSlider.value;
-            if (rawGray) applyAndPreview();
-        });
-        contrastSlider.addEventListener("input", () => {
-            contrastVal.textContent = (contrastSlider.value / 100).toFixed(1) + "x";
-            if (rawGray) applyAndPreview();
-        });
+    let autoBrightness = 0;
+    let autoContrast   = 100;
+    let ditherStyle    = "atkinson";
 
-        // Apply brightness/contrast to rawGray, dither, pack 1bpp, update preview
-        function applyAndPreview() {
-            const brightness = parseInt(brightnessSlider.value);
-            const contrast   = contrastSlider.value / 100;
-            const adjusted   = new Float32Array(rawGray.length);
-            for (let i = 0; i < rawGray.length; i++) {
-                adjusted[i] = Math.max(0, Math.min(255,
-                    (rawGray[i] - 128) * contrast + 128 + brightness));
+    const FONTS = {
+        sans:   { family: "system-ui, sans-serif",   weight: "normal" },
+        serif:  { family: "Georgia, serif",           weight: "normal" },
+        mono:   { family: "'Courier New', monospace", weight: "normal" },
+        impact: { family: "Impact, sans-serif",       weight: "normal" },
+    };
+    let captionFont    = "sans";
+    let captionBold    = false;
+    const SIZE_STEPS   = [11, 13, 15, 17, 19, 21, 24, 28, 32];
+    let sizeIdx        = 3; // default 17px
+
+    function getEffectiveFontSize(text, zoneH) {
+        return Math.min(SIZE_STEPS[sizeIdx], Math.floor(zoneH / 1.45));
+    }
+
+    function updateSizeBtns() {
+        document.getElementById("size-up").disabled   = sizeIdx >= SIZE_STEPS.length - 1;
+        document.getElementById("size-down").disabled = sizeIdx <= 0;
+    }
+
+    // Calculates how many characters fit in the caption zone with current font/size
+    function calcMaxChars() {
+        const tpl = getTemplate(currentTpl);
+        if (!tpl.cap) return 200;
+        const { w, h } = tpl.cap;
+        const fontSize = Math.min(SIZE_STEPS[sizeIdx], Math.floor(h / 1.45));
+        const lineH    = fontSize * 1.45;
+        const maxLines = Math.max(1, Math.floor(h / lineH));
+        const tmp    = document.createElement("canvas").getContext("2d");
+        const f      = FONTS[captionFont];
+        const weight = captionBold ? "bold" : f.weight;
+        tmp.font     = `${weight} ${fontSize}px ${f.family}`;
+        const avgCharW   = tmp.measureText("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ").width / 63;
+        const charsPerLine = Math.max(5, Math.floor((w - 16) / avgCharW));
+        return maxLines * charsPerLine;
+    }
+
+    function updateCharLimit() {
+        const max     = calcMaxChars();
+        const current = captionEl.value.length;
+        const counter = document.getElementById("char-counter");
+        const left    = max - current;
+        counter.textContent = `${current}/${max}`;
+        counter.className   = left < 0 ? "over" : left < Math.ceil(max * 0.15) ? "warn" : "";
+        // Apply the font to the textarea as a live preview
+        const f = FONTS[captionFont];
+        captionEl.style.fontFamily = f.family;
+        captionEl.style.fontWeight = captionBold ? "700" : f.weight;
+        captionEl.style.fontSize   = SIZE_STEPS[sizeIdx] + "px";
+    }
+
+    // ---- Undo ----
+    const undoStack = [];
+    const MAX_UNDO  = 12;
+
+    function pushUndo() {
+        undoStack.push(dCtx.getImageData(0, 0, 400, 300));
+        if (undoStack.length > MAX_UNDO) undoStack.shift();
+        undoBtn.disabled = false;
+    }
+    function undo() {
+        if (!undoStack.length) return;
+        dCtx.putImageData(undoStack.pop(), 0, 0);
+        undoBtn.disabled = undoStack.length === 0;
+        compose();
+    }
+    undoBtn.addEventListener("click", undo);
+    document.addEventListener("keydown", e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); }
+    });
+
+    // ---- Pan / zoom (upload mode) ----
+    let imgPan  = {x: 0, y: 0};
+    let imgZoom = 1.0;
+    let isPanning    = false;
+    let isPinching   = false;
+    let panStart     = null;
+    let pinchStart   = null;
+
+    // 4x4 Bayer ordered dither matrix, thresholds in 0-255 range
+    const BAYER = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5].map(v => (v + 0.5) / 16 * 255);
+
+    let currentTpl = 0;
+    let mode       = "draw";
+    let drawTool   = "pen";
+    let isDrawing       = false;
+    let isDraggingSplit = false;
+    let lastDX = 0, lastDY = 0;
+    let rawGray       = null;  // Float32Array -- auto-leveled gray for current zone size
+    let originalImage = null;  // HTMLImageElement -- stored so we can re-render on template switch
+
+    // Init draw source white
+    dCtx.fillStyle = "#fff";
+    dCtx.fillRect(0, 0, 400, 300);
+
+    // ---- MQTT ----
+    client.on("connect", () => {
+        statusEl.textContent = "Connected";
+        statusEl.className   = "connected";
+        sendBtn.disabled     = false;
+    });
+    client.on("error", () => {
+        statusEl.textContent = "Error";
+        statusEl.className   = "error";
+        sendBtn.disabled     = true;
+    });
+    client.on("close", () => {
+        statusEl.textContent = "Disconnected";
+        statusEl.className   = "";
+        sendBtn.disabled     = true;
+    });
+
+    // ---- Template ----
+    document.querySelectorAll(".tpl-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelector(".tpl-btn.active").classList.remove("active");
+            btn.classList.add("active");
+            currentTpl = parseInt(btn.dataset.tpl);
+            const hasCap = getTemplate(currentTpl).cap !== null;
+            document.getElementById("caption-row").classList.toggle("hidden", !hasCap);
+            if (hasCap) updateCharLimit();
+            if (originalImage) {
+                processImageFromImg(originalImage); // re-renders into new zone dimensions
+            } else {
+                dCtx.fillStyle = "#fff";
+                dCtx.fillRect(0, 0, 400, 300);
+                compose();
             }
+        });
+    });
 
-            // Floyd-Steinberg dithering on adjusted
-            for (let y = 0; y < 300; y++) {
-                for (let x = 0; x < 400; x++) {
-                    const idx = y * 400 + x;
+    // ---- Mode ----
+    document.getElementById("mode-draw").addEventListener("click", () => {
+        mode = "draw";
+        drawTool = "pen";
+        document.getElementById("mode-draw").classList.add("active");
+        document.getElementById("mode-upload").classList.remove("active");
+        eraserBtn.classList.remove("active");
+        imgSliders.classList.add("hidden");
+        styleRow.classList.add("hidden");
+        rawGray = null;
+        undoBtn.classList.add("visible");
+        compose();
+    });
+
+    document.getElementById("mode-upload").addEventListener("click", () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener("change", () => {
+        if (!fileInput.files[0]) return;
+        mode = "upload";
+        document.getElementById("mode-upload").classList.add("active");
+        document.getElementById("mode-draw").classList.remove("active");
+        eraserBtn.classList.remove("active");
+        undoBtn.classList.remove("visible");
+        processImage(fileInput.files[0]);
+        fileInput.value = "";
+    });
+
+
+    function processImageFromImg(img) {
+        const iz = getTemplate(currentTpl).img;
+
+        // Draw into offscreen canvas at current image zone size, respecting pan/zoom
+        const off = document.createElement("canvas");
+        off.width = iz.w; off.height = iz.h;
+        const oc = off.getContext("2d");
+        oc.fillStyle = "#fff";
+        oc.fillRect(0, 0, iz.w, iz.h);
+        const baseScale = Math.min(iz.w / img.width, iz.h / img.height);
+        const scale = baseScale * imgZoom;
+        const sw = img.width * scale, sh = img.height * scale;
+        oc.drawImage(img, (iz.w - sw) / 2 + imgPan.x, (iz.h - sh) / 2 + imgPan.y, sw, sh);
+
+        // Convert to grayscale
+        const pixels = oc.getImageData(0, 0, iz.w, iz.h).data;
+        const g = new Float32Array(iz.w * iz.h);
+        for (let i = 0; i < g.length; i++) {
+            const p = i * 4;
+            g[i] = 0.299 * pixels[p] + 0.587 * pixels[p+1] + 0.114 * pixels[p+2];
+        }
+
+        // Percentile-clip auto-levels
+        const hist = new Int32Array(256);
+        for (let i = 0; i < g.length; i++) hist[Math.round(g[i])]++;
+        const clip = Math.floor(g.length * 0.01);
+        let lo = 0, cumLo = 0;
+        while (lo < 255 && cumLo + hist[lo] < clip) { cumLo += hist[lo++]; }
+        let hi = 255, cumHi = 0;
+        while (hi > 0   && cumHi + hist[hi] < clip) { cumHi += hist[hi--]; }
+        const range = (hi - lo) || 1;
+        rawGray = new Float32Array(g.length);
+        for (let i = 0; i < g.length; i++)
+            rawGray[i] = Math.max(0, Math.min(255, (g[i] - lo) / range * 255));
+
+        computeAutoSettings();
+        brightnessEl.value = autoBrightness;
+        contrastEl.value   = autoContrast;
+        imgSliders.classList.remove("hidden");
+        styleRow.classList.remove("hidden");
+        applyAndPreview();
+    }
+
+    function processImage(file) {
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(img.src);
+            originalImage = img;
+            imgPan  = {x: 0, y: 0};
+            imgZoom = 1.0;
+            processImageFromImg(img);
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    // Fast color preview during pan/zoom gesture -- no dithering
+    function quickPreview() {
+        if (!originalImage) return;
+        const iz = getTemplate(currentTpl).img;
+        const baseScale = Math.min(iz.w / originalImage.width, iz.h / originalImage.height);
+        const scale = baseScale * imgZoom;
+        const sw = originalImage.width * scale, sh = originalImage.height * scale;
+        dCtx.fillStyle = "#fff";
+        dCtx.fillRect(iz.x, iz.y, iz.w, iz.h);
+        dCtx.drawImage(originalImage,
+            iz.x + (iz.w - sw) / 2 + imgPan.x,
+            iz.y + (iz.h - sh) / 2 + imgPan.y,
+            sw, sh);
+        compose();
+    }
+
+    brightnessEl.addEventListener("input", () => { if (rawGray) applyAndPreview(); });
+    contrastEl.addEventListener("input",   () => { if (rawGray) applyAndPreview(); });
+    document.getElementById("clear-all-btn").addEventListener("click", () => {
+        // Full reset -- clear undo history too
+        undoStack.length = 0;
+        undoBtn.disabled = true;
+        rawGray = null;
+        originalImage = null;
+        imgPan  = {x: 0, y: 0};
+        imgZoom = 1.0;
+        dCtx.fillStyle = "#fff";
+        dCtx.fillRect(0, 0, 400, 300);
+        imgSliders.classList.add("hidden");
+        styleRow.classList.add("hidden");
+        mode = "draw";
+        drawTool = "pen";
+        document.getElementById("mode-draw").classList.add("active");
+        document.getElementById("mode-upload").classList.remove("active");
+        eraserBtn.classList.remove("active");
+        undoBtn.classList.add("visible");
+        compose();
+    });
+
+    autoBtn.addEventListener("click", () => {
+        brightnessEl.value = autoBrightness;
+        contrastEl.value   = autoContrast;
+        applyAndPreview();
+    });
+
+    styleRow.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+            styleRow.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            ditherStyle = btn.dataset.dither;
+            if (rawGray) applyAndPreview();
+        });
+    });
+
+    document.getElementById("font-select").addEventListener("change", e => {
+        captionFont = e.target.value;
+        updateCharLimit();
+        compose();
+    });
+
+    document.getElementById("size-up").addEventListener("click", () => {
+        if (sizeIdx < SIZE_STEPS.length - 1) { sizeIdx++; updateSizeBtns(); updateCharLimit(); compose(); }
+    });
+    document.getElementById("size-down").addEventListener("click", () => {
+        if (sizeIdx > 0) { sizeIdx--; updateSizeBtns(); updateCharLimit(); compose(); }
+    });
+    document.getElementById("bold-btn").addEventListener("click", () => {
+        captionBold = !captionBold;
+        document.getElementById("bold-btn").classList.toggle("active", captionBold);
+        captionEl.style.fontWeight = captionBold ? "700" : FONTS[captionFont].weight;
+        updateCharLimit();
+        compose();
+    });
+
+    function computeAutoSettings() {
+        const n = rawGray.length;
+        let sum = 0;
+        for (let i = 0; i < n; i++) sum += rawGray[i];
+        const mean = sum / n;
+
+        let variance = 0;
+        for (let i = 0; i < n; i++) variance += (rawGray[i] - mean) ** 2;
+        const std = Math.sqrt(variance / n);
+
+        // Target 148 instead of 128 -- e-ink black absorbs more light than
+        // pixels emit, so dithered images appear darker on the physical display
+        autoBrightness = Math.round(Math.max(-100, Math.min(100, 148 - mean)));
+
+        // Target std dev of 70 -- boost flat images, pull back already punchy ones
+        const mult = std > 0 ? Math.min(2.5, Math.max(0.7, 70 / std)) : 1.0;
+        autoContrast = Math.round(Math.max(50, Math.min(300, mult * 100)));
+    }
+
+    function applyAndPreview() {
+        const iz         = getTemplate(currentTpl).img;
+        const brightness = parseInt(brightnessEl.value);
+        const contrast   = contrastEl.value / 100;
+
+        const adjusted = new Float32Array(rawGray.length);
+        for (let i = 0; i < rawGray.length; i++) {
+            adjusted[i] = Math.max(0, Math.min(255,
+                (rawGray[i] - 128) * contrast + 128 + brightness));
+        }
+
+        if (ditherStyle === "fs") {
+            // Floyd-Steinberg -- full error diffusion, rich detail
+            for (let y = 0; y < iz.h; y++) {
+                for (let x = 0; x < iz.w; x++) {
+                    const idx = y * iz.w + x;
                     const old = adjusted[idx];
                     const nw  = old < 128 ? 0 : 255;
                     const err = old - nw;
                     adjusted[idx] = nw;
-                    if (x + 1 < 400)           adjusted[idx + 1]       += err * 7 / 16;
-                    if (y + 1 < 300) {
-                        if (x - 1 >= 0)        adjusted[idx + 400 - 1] += err * 3 / 16;
-                                               adjusted[idx + 400]     += err * 5 / 16;
-                        if (x + 1 < 400)       adjusted[idx + 400 + 1] += err * 1 / 16;
+                    if (x + 1 < iz.w)         adjusted[idx + 1]           += err * 7 / 16;
+                    if (y + 1 < iz.h) {
+                        if (x - 1 >= 0)       adjusted[idx + iz.w - 1]   += err * 3 / 16;
+                                              adjusted[idx + iz.w]        += err * 5 / 16;
+                        if (x + 1 < iz.w)     adjusted[idx + iz.w + 1]   += err * 1 / 16;
                     }
                 }
             }
-
-            // Pack 1bpp
-            const buf = new Uint8Array(15000);
-            for (let row = 0; row < 300; row++) {
-                for (let byteN = 0; byteN < 50; byteN++) {
-                    let b = 0;
-                    for (let bit = 0; bit < 8; bit++) {
-                        if (adjusted[row * 400 + byteN * 8 + bit] >= 128) b |= (1 << (7 - bit));
+        } else if (ditherStyle === "atkinson") {
+            // Atkinson -- 6/8 error diffusion, cleaner highlights
+            for (let y = 0; y < iz.h; y++) {
+                for (let x = 0; x < iz.w; x++) {
+                    const idx = y * iz.w + x;
+                    const old = adjusted[idx];
+                    const nw  = old < 128 ? 0 : 255;
+                    const err = Math.floor((old - nw) / 8);
+                    adjusted[idx] = nw;
+                    if (x + 1 < iz.w)         adjusted[idx + 1]           += err;
+                    if (x + 2 < iz.w)         adjusted[idx + 2]           += err;
+                    if (y + 1 < iz.h) {
+                        if (x - 1 >= 0)       adjusted[idx + iz.w - 1]   += err;
+                                              adjusted[idx + iz.w]        += err;
+                        if (x + 1 < iz.w)     adjusted[idx + iz.w + 1]   += err;
                     }
-                    buf[row * 50 + byteN] = b;
+                    if (y + 2 < iz.h)         adjusted[idx + iz.w * 2]   += err;
                 }
             }
-            pendingImage = buf;
-            drawImagePreview(buf);
-        }
-
-        function renderTextToCanvas(text, targetCtx) {
-            const W = 400, H = 300;
-            targetCtx.fillStyle = "#fff";
-            targetCtx.fillRect(0, 0, W, H);
-            if (!text) return;
-
-            let fontSize = text.length > 80 ? 20 : text.length > 40 ? 26 : 34;
-            const maxWidth = W - 48;
-            const lineHeight = Math.round(fontSize * 1.45);
-
-            targetCtx.fillStyle = "#000";
-            targetCtx.font = `bold ${fontSize}px Arial, sans-serif`;
-            targetCtx.textBaseline = "top";
-            targetCtx.textAlign = "center";
-
-            const lines = [];
-            for (const rawLine of text.split("\n")) {
-                const words = rawLine.split(" ");
-                let line = "";
-                for (const word of words) {
-                    const test = line ? line + " " + word : word;
-                    if (targetCtx.measureText(test).width > maxWidth && line) {
-                        lines.push(line); line = word;
-                    } else { line = test; }
-                }
-                if (line || rawLine === "") lines.push(line);
-            }
-
-            const totalH = lines.length * lineHeight;
-            const startY = Math.round((H - totalH) / 2);
-            lines.forEach((l, i) => targetCtx.fillText(l, W / 2, startY + i * lineHeight));
-        }
-
-        function drawTextPreview(text) {
-            renderTextToCanvas(text, ctx);
-        }
-
-        // Draw 1bpp image buffer (400x300) onto a 400x300 canvas
-        function drawImagePreview(buf) {
-            const imgData = ctx.createImageData(400, 300);
-            const px = imgData.data;
-            for (let row = 0; row < 300; row++) {
-                for (let col = 0; col < 400; col++) {
-                    const byteIdx = row * 50 + Math.floor(col / 8);
-                    const bitIdx  = 7 - (col % 8);
-                    const white   = (buf[byteIdx] >> bitIdx) & 1;
-                    const v       = white ? 255 : 0;
-                    const i       = (row * 400 + col) * 4;
-                    px[i] = px[i+1] = px[i+2] = v;
-                    px[i+3] = 255;
+        } else {
+            // Bayer ordered -- regular grid pattern, no error diffusion
+            for (let y = 0; y < iz.h; y++) {
+                for (let x = 0; x < iz.w; x++) {
+                    const idx = y * iz.w + x;
+                    adjusted[idx] = adjusted[idx] > BAYER[(y % 4) * 4 + (x % 4)] ? 255 : 0;
                 }
             }
-            ctx.putImageData(imgData, 0, 0);
         }
 
-        // ---- Image processing ----
-        function processImage(file) {
-            const img = new Image();
-            const url = URL.createObjectURL(file);
-            img.onload = () => {
-                URL.revokeObjectURL(url);
-
-                // Draw to offscreen 400x300 canvas (letterbox)
-                const offscreen = document.createElement("canvas");
-                offscreen.width = 400; offscreen.height = 300;
-                const oc = offscreen.getContext("2d");
-                oc.fillStyle = "white";
-                oc.fillRect(0, 0, 400, 300);
-
-                const scale = Math.min(400 / img.width, 300 / img.height);
-                const sw = img.width * scale, sh = img.height * scale;
-                oc.drawImage(img, (400 - sw) / 2, (300 - sh) / 2, sw, sh);
-
-                // Convert to grayscale then auto-level (stretch histogram to 0-255)
-                const pixels = oc.getImageData(0, 0, 400, 300).data;
-                const g = new Float32Array(400 * 300);
-                for (let i = 0; i < g.length; i++) {
-                    const p = i * 4;
-                    g[i] = 0.299 * pixels[p] + 0.587 * pixels[p+1] + 0.114 * pixels[p+2];
-                }
-                let lo = 255, hi = 0;
-                for (let i = 0; i < g.length; i++) { if (g[i] < lo) lo = g[i]; if (g[i] > hi) hi = g[i]; }
-                const range = hi - lo || 1;
-                rawGray = new Float32Array(g.length);
-                for (let i = 0; i < g.length; i++) rawGray[i] = (g[i] - lo) / range * 255;
-
-                // Reset sliders
-                brightnessSlider.value = "0"; brightnessVal.textContent = "0";
-                contrastSlider.value = "100"; contrastVal.textContent = "1.0x";
-
-                msgInput.disabled = true;
-                msgInput.value = "";
-                charCount.textContent = "image mode";
-                dropZone.textContent = file.name + "  [click to change]";
-                dropZone.classList.add("has-image");
-                sendBtn.textContent = "Send Image to Display";
-                imgControls.style.display = "block";
-
-                setImageMode();
-                applyAndPreview();
-            };
-            img.src = url;
+        // Paint dithered result into draw source at image zone offset
+        dCtx.fillStyle = "#fff";
+        dCtx.fillRect(iz.x, iz.y, iz.w, iz.h);
+        const imgData = dCtx.createImageData(iz.w, iz.h);
+        for (let i = 0; i < adjusted.length; i++) {
+            const v = adjusted[i] >= 128 ? 255 : 0;
+            imgData.data[i * 4]     = v;
+            imgData.data[i * 4 + 1] = v;
+            imgData.data[i * 4 + 2] = v;
+            imgData.data[i * 4 + 3] = 255;
         }
+        dCtx.putImageData(imgData, iz.x, iz.y);
+        compose();
+    }
 
-        function clearImage() {
-            pendingImage = null;
-            rawGray = null;
-            imgControls.style.display = "none";
-            msgInput.disabled = false;
-            charCount.textContent = `${msgInput.value.length} / 300`;
-            dropZone.textContent = "Drop image or click to upload";
-            dropZone.classList.remove("has-image");
-            sendBtn.textContent = "Send to Display";
-            setTextMode();
-            drawTextPreview(msgInput.value || lastSent);
+    // ---- Draw ----
+    function clientToCanvas(clientX, clientY) {
+        const rect = preview.getBoundingClientRect();
+        return [
+            (clientX - rect.left) * (400 / rect.width),
+            (clientY - rect.top)  * (300 / rect.height)
+        ];
+    }
+    function canvasCoords(e) {
+        const src = e.touches ? e.touches[0] : e;
+        return clientToCanvas(src.clientX, src.clientY);
+    }
+
+    // Zoom image around a canvas point (cx, cy), keeping that point fixed
+    function zoomAround(newZoom, cx, cy) {
+        const iz   = getTemplate(currentTpl).img;
+        const oldZ = imgZoom;
+        newZoom    = Math.max(0.5, Math.min(5.0, newZoom));
+        const dx   = cx - iz.x - iz.w / 2;
+        const dy   = cy - iz.y - iz.h / 2;
+        imgPan.x   = dx - (dx - imgPan.x) * newZoom / oldZ;
+        imgPan.y   = dy - (dy - imgPan.y) * newZoom / oldZ;
+        imgZoom    = newZoom;
+    }
+
+    // Debounce full re-render after scroll/pinch settles
+    let zoomTimer = null;
+    function scheduleRerender() {
+        clearTimeout(zoomTimer);
+        zoomTimer = setTimeout(() => {
+            if (originalImage) processImageFromImg(originalImage);
+        }, 350);
+    }
+
+    // Mouse wheel crop in/out
+    preview.addEventListener("wheel", e => {
+        if (mode !== "upload" || !originalImage) return;
+        e.preventDefault();
+        const [cx, cy] = canvasCoords(e);
+        if (!inImageZone(cx, cy)) return;
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        zoomAround(imgZoom * factor, cx, cy);
+        quickPreview();
+        scheduleRerender();
+    }, { passive: false });
+
+    function inImageZone(cx, cy) {
+        const iz = getTemplate(currentTpl).img;
+        return cx >= iz.x && cx <= iz.x + iz.w && cy >= iz.y && cy <= iz.y + iz.h;
+    }
+
+    function drawDot(x, y) {
+        dCtx.beginPath();
+        dCtx.arc(x, y, parseInt(brushSize.value) / 2, 0, Math.PI * 2);
+        dCtx.fillStyle = drawTool === "pen" ? "#000" : "#fff";
+        dCtx.fill();
+    }
+
+    function drawLine(x1, y1, x2, y2) {
+        dCtx.beginPath();
+        dCtx.moveTo(x1, y1);
+        dCtx.lineTo(x2, y2);
+        dCtx.strokeStyle = drawTool === "pen" ? "#000" : "#fff";
+        dCtx.lineWidth   = parseInt(brushSize.value);
+        dCtx.lineCap     = "round";
+        dCtx.lineJoin    = "round";
+        dCtx.stroke();
+    }
+
+    function nearSplit(cx, cy) {
+        if (getTemplate(currentTpl).cap === null) return false;
+        if (currentTpl === 0) return Math.abs(cy - splits[0]) < 8;
+        if (currentTpl === 1) return Math.abs(cx - splits[1]) < 8;
+        return false;
+    }
+
+    function splitCursor() {
+        return currentTpl === 0 ? "ns-resize" : "ew-resize";
+    }
+
+    let isMousePanning = false;
+    let mousePanStart  = null;
+
+    function onPointerStart(e) {
+        e.preventDefault();
+        const [x, y] = canvasCoords(e);
+        if (nearSplit(x, y)) {
+            isDraggingSplit = true;
+            return;
         }
-
-        // ---- Drop zone events ----
-        dropZone.addEventListener("click", () => {
-            if (pendingImage) { clearImage(); return; }
-            fileInput.click();
-        });
-        fileInput.addEventListener("change", () => {
-            if (fileInput.files[0]) processImage(fileInput.files[0]);
-            fileInput.value = "";
-        });
-        dropZone.addEventListener("dragover", e => {
-            e.preventDefault();
-            dropZone.classList.add("drag-over");
-        });
-        dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
-        dropZone.addEventListener("drop", e => {
-            e.preventDefault();
-            dropZone.classList.remove("drag-over");
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith("image/")) processImage(file);
-        });
-
-        // ---- Text input ----
-        msgInput.addEventListener("input", () => {
-            charCount.textContent = `${msgInput.value.length} / 300`;
-            drawTextPreview(msgInput.value || lastSent);
-        });
-
-        // ---- Base64 encode ----
-        function toBase64(buf) {
-            let bin = "";
-            for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-            return btoa(bin);
+        if (mode === "upload" && originalImage && inImageZone(x, y)) {
+            isMousePanning = true;
+            mousePanStart  = { cx: e.clientX, cy: e.clientY, panX: imgPan.x, panY: imgPan.y };
+            preview.style.cursor = "grabbing";
+            return;
         }
+        if (mode !== "draw") return;
+        if (!inImageZone(x, y)) return;
+        pushUndo();
+        isDrawing = true;
+        [lastDX, lastDY] = [x, y];
+        drawDot(x, y);
+        compose();
+    }
 
-        // ---- Pack canvas to 1bpp buffer ----
-        function packEink(srcCanvas) {
-            const pixels = srcCanvas.getContext("2d").getImageData(0, 0, 400, 300).data;
-            const buf = new Uint8Array(15000);
-            for (let row = 0; row < 300; row++) {
-                for (let b = 0; b < 50; b++) {
-                    let byte = 0;
-                    for (let bit = 0; bit < 8; bit++) {
-                        const p = (row * 400 + b * 8 + bit) * 4;
-                        const gray = 0.299 * pixels[p] + 0.587 * pixels[p+1] + 0.114 * pixels[p+2];
-                        if (gray >= 160) byte |= (1 << (7 - bit));
-                    }
-                    buf[row * 50 + b] = byte;
-                }
-            }
-            return buf;
+    function onPointerMove(e) {
+        e.preventDefault();
+        const [x, y] = canvasCoords(e);
+        if (isDraggingSplit) {
+            const val = currentTpl === 0 ? y : x;
+            splits[currentTpl] = Math.max(SPLIT_MIN[currentTpl], Math.min(SPLIT_MAX[currentTpl], Math.round(val)));
+            compose();
+            preview.style.cursor = splitCursor();
+            return;
         }
-
-        // ---- Send ----
-        async function sendImage(buf) {
-            const b64 = toBase64(buf); // 20000 chars
-            sendBtn.disabled = true;
-            for (let i = 0; i < TOTAL_CHUNKS; i++) {
-                const chunkB64 = b64.slice(i * (CHUNK_BYTES * 4 / 3), (i + 1) * (CHUNK_BYTES * 4 / 3));
-                const msg = `IMG:${String(i+1).padStart(2,"0")}/${TOTAL_CHUNKS}:${chunkB64}`;
-                client.publish(TOPIC, msg);
-                sendBtn.textContent = `Sending image... ${i+1}/${TOTAL_CHUNKS}`;
-                await new Promise(r => setTimeout(r, 150));
-            }
-            sendBtn.textContent = "Send Image to Display";
-            sendBtn.disabled = false;
+        if (isMousePanning) {
+            const rect = preview.getBoundingClientRect();
+            imgPan.x = mousePanStart.panX + (e.clientX - mousePanStart.cx) * (400 / rect.width);
+            imgPan.y = mousePanStart.panY + (e.clientY - mousePanStart.cy) * (300 / rect.height);
+            quickPreview();
+            return;
         }
+        if (!isDrawing || mode !== "draw") return;
+        drawLine(lastDX, lastDY, x, y);
+        [lastDX, lastDY] = [x, y];
+        compose();
+    }
 
-        sendBtn.addEventListener("click", async () => {
-            if (pendingImage) {
-                await sendImage(pendingImage);
-                client.publish(TOPIC, "CMD:RETURN");
+    function onPointerEnd() {
+        isDraggingSplit = false;
+        isDrawing = false;
+        if (isMousePanning) {
+            isMousePanning = false;
+            preview.style.cursor = "grab";
+            if (originalImage) processImageFromImg(originalImage);
+        }
+    }
+
+    preview.addEventListener("mousedown",  onPointerStart);
+    preview.addEventListener("mousemove",  onPointerMove);
+    preview.addEventListener("mouseup",    onPointerEnd);
+    preview.addEventListener("mouseleave", onPointerEnd);
+
+    // Touch -- handles pinch-zoom and pan in upload mode, drawing otherwise
+    function getTouchDist(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    preview.addEventListener("touchstart", e => {
+        e.preventDefault();
+        if (mode === "upload" && originalImage) {
+            const rect = preview.getBoundingClientRect();
+            if (e.touches.length === 2) {
+                isPinching = true;
+                isPanning  = false;
+                const [mx, my] = clientToCanvas(
+                    (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    (e.touches[0].clientY + e.touches[1].clientY) / 2
+                );
+                pinchStart = {
+                    dist: getTouchDist(e.touches),
+                    zoom: imgZoom,
+                    panX: imgPan.x,
+                    panY: imgPan.y,
+                    midX: mx, midY: my
+                };
                 return;
             }
-            const msg = msgInput.value.trim();
-            if (!msg) return;
-            lastSent = msg;
+            if (e.touches.length === 1) {
+                const [cx, cy] = canvasCoords(e);
+                if (!nearSplit(cx, cy) && inImageZone(cx, cy)) {
+                    isPanning = true;
+                    panStart  = {
+                        cx: e.touches[0].clientX,
+                        cy: e.touches[0].clientY,
+                        panX: imgPan.x,
+                        panY: imgPan.y
+                    };
+                    return;
+                }
+            }
+        }
+        onPointerStart(e);
+    }, { passive: false });
 
-            // Render text to an offscreen canvas and send as image
-            const offscreen = document.createElement("canvas");
-            offscreen.width = 400; offscreen.height = 300;
-            renderTextToCanvas(msg, offscreen.getContext("2d"));
-            const buf = packEink(offscreen);
-            await sendImage(buf);
+    preview.addEventListener("touchmove", e => {
+        e.preventDefault();
+        if (mode === "upload" && originalImage) {
+            if (isPinching && e.touches.length === 2) {
+                const newDist  = getTouchDist(e.touches);
+                const newZoom  = pinchStart.zoom * (newDist / pinchStart.dist);
+                // Restore pan to start state, then apply centered zoom
+                imgPan.x = pinchStart.panX;
+                imgPan.y = pinchStart.panY;
+                imgZoom  = pinchStart.zoom;
+                zoomAround(newZoom, pinchStart.midX, pinchStart.midY);
+                quickPreview();
+                return;
+            }
+            if (isPanning && e.touches.length === 1) {
+                const rect = preview.getBoundingClientRect();
+                imgPan.x = panStart.panX + (e.touches[0].clientX - panStart.cx) * (400 / rect.width);
+                imgPan.y = panStart.panY + (e.touches[0].clientY - panStart.cy) * (300 / rect.height);
+                quickPreview();
+                return;
+            }
+        }
+        onPointerMove(e);
+    }, { passive: false });
 
-            // Signal dashboard to update Last Message card and return after 2.5s
-            client.publish(TOPIC, "TXT:" + msg);
+    preview.addEventListener("touchend", e => {
+        if (isPinching || isPanning) {
+            isPinching = false;
+            isPanning  = false;
+            // Full re-render with dithering now that gesture is done
+            if (originalImage) processImageFromImg(originalImage);
+            return;
+        }
+        onPointerEnd(e);
+    });
 
-            msgInput.value = "";
-            charCount.textContent = "0 / 300";
-            drawTextPreview(lastSent);
-        });
+    preview.addEventListener("mousemove", e => {
+        if (isMousePanning) return; // cursor already set to grabbing
+        const [x, y] = canvasCoords(e);
+        if (nearSplit(x, y))                                        { preview.style.cursor = splitCursor(); return; }
+        if (mode === "upload" && originalImage && inImageZone(x, y)){ preview.style.cursor = "grab";        return; }
+        if (mode === "draw"   && inImageZone(x, y))                 { preview.style.cursor = "crosshair";   return; }
+        preview.style.cursor = "default";
+    });
 
-        // Initial state
-        setTextMode();
-        drawTextPreview("");
-    </script>
+    eraserBtn.addEventListener("click", () => {
+        mode = "draw";
+        drawTool = "eraser";
+        eraserBtn.classList.add("active");
+        document.getElementById("mode-draw").classList.remove("active");
+        document.getElementById("mode-upload").classList.remove("active");
+        imgSliders.classList.add("hidden");
+        styleRow.classList.add("hidden");
+        rawGray = null;
+        undoBtn.classList.add("visible");
+    });
+    clearBtn.addEventListener("click", () => {
+        pushUndo();
+        const iz = getTemplate(currentTpl).img;
+        dCtx.fillStyle = "#fff";
+        dCtx.fillRect(iz.x, iz.y, iz.w, iz.h);
+        compose();
+    });
+
+    captionEl.addEventListener("input", () => { updateCharLimit(); compose(); });
+
+    // ---- Compose preview ----
+    function renderCaption(text, targetCtx, zone) {
+        if (!zone) return;
+        const { x, y, w, h } = zone;
+        if (w < 20 || h < 20) return;
+        targetCtx.save();
+        targetCtx.beginPath();
+        targetCtx.rect(x, y, w, h);
+        targetCtx.clip();
+        if (!text) { targetCtx.restore(); return; }
+
+        const fontSize = getEffectiveFontSize(text, h);
+        const f      = FONTS[captionFont];
+        const weight = captionBold ? "bold" : f.weight;
+        targetCtx.font = `${weight} ${fontSize}px ${f.family}`;
+        targetCtx.fillStyle     = "#000";
+        targetCtx.textBaseline  = "middle";
+        targetCtx.textAlign     = "center";
+
+        const words = text.split(" ");
+        const lines = [];
+        let line = "";
+        for (const word of words) {
+            const test = line ? line + " " + word : word;
+            if (targetCtx.measureText(test).width > w - 16 && line) {
+                lines.push(line); line = word;
+            } else { line = test; }
+        }
+        if (line) lines.push(line);
+
+        const lineH  = fontSize * 1.45;
+        const startY = y + (h - lines.length * lineH) / 2 + lineH / 2;
+        lines.forEach((l, i) => targetCtx.fillText(l, x + w / 2, startY + i * lineH));
+        targetCtx.restore();
+    }
+
+    function compose(forSend = false) {
+        const tpl = getTemplate(currentTpl);
+        const iz  = tpl.img;
+
+        pCtx.fillStyle = "#fff";
+        pCtx.fillRect(0, 0, 400, 300);
+
+        // Image / draw zone
+        pCtx.drawImage(drawSrc, iz.x, iz.y, iz.w, iz.h, iz.x, iz.y, iz.w, iz.h);
+
+        // Caption zone
+        if (tpl.cap) {
+            const cz = tpl.cap;
+            pCtx.fillStyle = "#fff";
+            pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+
+            // Divider line
+            pCtx.strokeStyle = "#000";
+            pCtx.lineWidth = 1;
+            pCtx.beginPath();
+            if (cz.y > 0) {
+                pCtx.moveTo(0, cz.y); pCtx.lineTo(400, cz.y);
+            } else {
+                pCtx.moveTo(cz.x, 0); pCtx.lineTo(cz.x, 300);
+            }
+            pCtx.stroke();
+
+            renderCaption(captionEl.value, pCtx, cz);
+        }
+
+        // Zone hint (dashed border) in draw mode, only for live preview
+        if (!forSend && mode === "draw") {
+            pCtx.save();
+            pCtx.setLineDash([4, 4]);
+            pCtx.strokeStyle = "rgba(80,80,80,0.25)";
+            pCtx.lineWidth = 1;
+            pCtx.strokeRect(iz.x + 0.5, iz.y + 0.5, iz.w - 1, iz.h - 1);
+            pCtx.restore();
+        }
+    }
+
+    // ---- Pack & send ----
+    function toBase64(buf) {
+        let bin = "";
+        for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+        return btoa(bin);
+    }
+
+    function packEink(srcCanvas) {
+        const pixels = srcCanvas.getContext("2d").getImageData(0, 0, 400, 300).data;
+        const buf = new Uint8Array(15000);
+        for (let row = 0; row < 300; row++) {
+            for (let b = 0; b < 50; b++) {
+                let byte = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const p    = (row * 400 + b * 8 + bit) * 4;
+                    const gray = 0.299 * pixels[p] + 0.587 * pixels[p+1] + 0.114 * pixels[p+2];
+                    if (gray >= 128) byte |= (1 << (7 - bit));
+                }
+                buf[row * 50 + b] = byte;
+            }
+        }
+        return buf;
+    }
+
+    async function sendImage(buf) {
+        const b64      = toBase64(buf);
+        const origText = sendBtn.textContent;
+        sendBtn.disabled = true;
+        for (let i = 0; i < TOTAL_CHUNKS; i++) {
+            const chunk = b64.slice(i * (CHUNK_BYTES * 4 / 3), (i + 1) * (CHUNK_BYTES * 4 / 3));
+            client.publish(TOPIC, `IMG:${String(i+1).padStart(2,"0")}/${TOTAL_CHUNKS}:${chunk}`);
+            sendBtn.textContent = `Sending... ${i+1}/${TOTAL_CHUNKS}`;
+            await new Promise(r => setTimeout(r, 150));
+        }
+        sendBtn.textContent = origText;
+        sendBtn.disabled    = false;
+    }
+
+    sendBtn.addEventListener("click", async () => {
+        // Render clean frame (no zone hints) onto offscreen canvas
+        const off   = document.createElement("canvas");
+        off.width   = 400; off.height = 300;
+        const offCtx = off.getContext("2d");
+        const tpl   = getTemplate(currentTpl);
+        const iz    = tpl.img;
+
+        offCtx.fillStyle = "#fff";
+        offCtx.fillRect(0, 0, 400, 300);
+        offCtx.drawImage(drawSrc, iz.x, iz.y, iz.w, iz.h, iz.x, iz.y, iz.w, iz.h);
+
+        if (tpl.cap) {
+            const cz = tpl.cap;
+            offCtx.fillStyle = "#fff";
+            offCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+            offCtx.strokeStyle = "#000";
+            offCtx.lineWidth = 1;
+            offCtx.beginPath();
+            if (cz.y > 0) {
+                offCtx.moveTo(0, cz.y); offCtx.lineTo(400, cz.y);
+            } else {
+                offCtx.moveTo(cz.x, 0); offCtx.lineTo(cz.x, 300);
+            }
+            offCtx.stroke();
+            renderCaption(captionEl.value, offCtx, tpl.cap);
+        }
+
+        const buf = packEink(off);
+        await sendImage(buf);
+        client.publish(TOPIC, "CMD:RETURN");
+
+        const caption = captionEl.value.trim();
+        if (caption) client.publish(TOPIC, "TXT:" + caption);
+    });
+
+    // Init
+    updateSizeBtns();
+    updateCharLimit();
+    compose();
+</script>
 </body>
 </html>
