@@ -343,7 +343,7 @@
             </div>
         </div>
 
-        <button id="send" disabled>Send a Reach</button>
+        <button id="send" disabled>Send Reach</button>
     </div>
 </div>
 
@@ -361,8 +361,8 @@
 
     function getTemplate(idx) {
         if (idx === 0) {
-            // Full screen -- overlay caption strip at bottom
-            return { img: {x:0, y:0, w:400, h:300}, cap: {x:0, y:250, w:400, h:50, overlay:true} };
+            // Full screen -- caption centered over image, no partition
+            return { img: {x:0, y:0, w:400, h:300}, cap: {x:0, y:0, w:400, h:300, overlay:true} };
         }
         if (idx === 1) {
             const y = splits[1];
@@ -1083,10 +1083,8 @@
         if (tpl.cap) {
             const cz = tpl.cap;
             if (cz.overlay) {
-                // Overlay strip -- only shown when there is text
+                // Overlay -- caption centered over image, no background
                 if (captionEl.value.trim()) {
-                    pCtx.fillStyle = "#fff";
-                    pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
                     renderCaption(captionEl.value, pCtx, cz);
                 }
             } else {
