@@ -269,26 +269,26 @@
 
     <!-- Template picker -->
     <div class="tpl-picker">
-        <!-- T0: image top, caption bottom -->
-        <button class="tpl-btn active" data-tpl="0" title="Image top, caption bottom">
+        <!-- T0: full screen -->
+        <button class="tpl-btn active" data-tpl="0" title="Full screen">
+            <svg viewBox="0 0 44 33" fill="none">
+                <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#c8c8c8" stroke="#bbb"/>
+            </svg>
+        </button>
+        <!-- T1: image top, caption bottom -->
+        <button class="tpl-btn" data-tpl="1" title="Image top, caption bottom">
             <svg viewBox="0 0 44 33" fill="none">
                 <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#e0e0e0" stroke="#bbb"/>
                 <rect x=".5" y=".5" width="43" height="21" rx="2" fill="#c8c8c8"/>
                 <line x1="0" y1="21.5" x2="44" y2="21.5" stroke="#bbb"/>
             </svg>
         </button>
-        <!-- T1: image left, caption right -->
-        <button class="tpl-btn" data-tpl="1" title="Image left, caption right">
+        <!-- T2: image left, caption right -->
+        <button class="tpl-btn" data-tpl="2" title="Image left, caption right">
             <svg viewBox="0 0 44 33" fill="none">
                 <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#e0e0e0" stroke="#bbb"/>
                 <rect x=".5" y=".5" width="28" height="32" rx="2" fill="#c8c8c8"/>
                 <line x1="28.5" y1="0" x2="28.5" y2="33" stroke="#bbb"/>
-            </svg>
-        </button>
-        <!-- T2: full screen -->
-        <button class="tpl-btn" data-tpl="2" title="Full screen">
-            <svg viewBox="0 0 44 33" fill="none">
-                <rect x=".5" y=".5" width="43" height="32" rx="2" fill="#c8c8c8" stroke="#bbb"/>
             </svg>
         </button>
     </div>
@@ -356,20 +356,24 @@
     const CHUNK_BYTES  = 3000;
     const TOTAL_CHUNKS = 5;
 
-    const splits    = [220, 280];
-    const SPLIT_MIN = [80,  100];
-    const SPLIT_MAX = [240, 320];
+    const splits    = [null, 220, 280];
+    const SPLIT_MIN = [null, 80,  100];
+    const SPLIT_MAX = [null, 240, 320];
 
     function getTemplate(idx) {
         if (idx === 0) {
-            const y = splits[0];
-            return { img: {x:0, y:0, w:400, h:y}, cap: {x:0, y:y+1, w:400, h:300-y-1} };
+            // Full screen -- overlay caption strip at bottom
+            return { img: {x:0, y:0, w:400, h:300}, cap: {x:0, y:250, w:400, h:50, overlay:true} };
         }
         if (idx === 1) {
-            const x = splits[1];
+            const y = splits[1];
+            return { img: {x:0, y:0, w:400, h:y}, cap: {x:0, y:y+1, w:400, h:300-y-1} };
+        }
+        if (idx === 2) {
+            const x = splits[2];
             return { img: {x:0, y:0, w:x, h:300}, cap: {x:x+1, y:0, w:400-x-1, h:300} };
         }
-        return { img: {x:0, y:0, w:400, h:300}, cap: null };
+        return { img: {x:0, y:0, w:400, h:300}, cap: {x:0, y:250, w:400, h:50, overlay:true} };
     }
 
     const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
@@ -516,9 +520,7 @@
             document.querySelector(".tpl-btn.active").classList.remove("active");
             btn.classList.add("active");
             currentTpl = parseInt(btn.dataset.tpl);
-            const hasCap = getTemplate(currentTpl).cap !== null;
-            document.getElementById("caption-row").classList.toggle("hidden", !hasCap);
-            if (hasCap) updateCharLimit();
+            updateCharLimit();
             if (originalImage) {
                 processImageFromImg(originalImage); // re-renders into new zone dimensions
             } else {
@@ -849,14 +851,14 @@
     }
 
     function nearSplit(cx, cy) {
-        if (getTemplate(currentTpl).cap === null) return false;
-        if (currentTpl === 0) return Math.abs(cy - splits[0]) < 8;
-        if (currentTpl === 1) return Math.abs(cx - splits[1]) < 8;
+        if (currentTpl === 0) return false;
+        if (currentTpl === 1) return Math.abs(cy - splits[1]) < 8;
+        if (currentTpl === 2) return Math.abs(cx - splits[2]) < 8;
         return false;
     }
 
     function splitCursor() {
-        return currentTpl === 0 ? "ns-resize" : "ew-resize";
+        return currentTpl === 1 ? "ns-resize" : "ew-resize";
     }
 
     let isMousePanning = false;
@@ -1081,21 +1083,32 @@
         // Caption zone
         if (tpl.cap) {
             const cz = tpl.cap;
-            pCtx.fillStyle = "#fff";
-            pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
-
-            // Divider line
-            pCtx.strokeStyle = "#000";
-            pCtx.lineWidth = 1;
-            pCtx.beginPath();
-            if (cz.y > 0) {
-                pCtx.moveTo(0, cz.y); pCtx.lineTo(400, cz.y);
+            if (cz.overlay) {
+                // Overlay strip -- only shown when there is text
+                if (captionEl.value.trim()) {
+                    pCtx.fillStyle = "#fff";
+                    pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+                    pCtx.strokeStyle = "#000";
+                    pCtx.lineWidth = 1;
+                    pCtx.beginPath();
+                    pCtx.moveTo(0, cz.y); pCtx.lineTo(400, cz.y);
+                    pCtx.stroke();
+                    renderCaption(captionEl.value, pCtx, cz);
+                }
             } else {
-                pCtx.moveTo(cz.x, 0); pCtx.lineTo(cz.x, 300);
+                pCtx.fillStyle = "#fff";
+                pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+                pCtx.strokeStyle = "#000";
+                pCtx.lineWidth = 1;
+                pCtx.beginPath();
+                if (cz.y > 0) {
+                    pCtx.moveTo(0, cz.y); pCtx.lineTo(400, cz.y);
+                } else {
+                    pCtx.moveTo(cz.x, 0); pCtx.lineTo(cz.x, 300);
+                }
+                pCtx.stroke();
+                renderCaption(captionEl.value, pCtx, cz);
             }
-            pCtx.stroke();
-
-            renderCaption(captionEl.value, pCtx, cz);
         }
 
         // Zone hint (dashed border) in draw mode, only for live preview
@@ -1161,18 +1174,31 @@
 
         if (tpl.cap) {
             const cz = tpl.cap;
-            offCtx.fillStyle = "#fff";
-            offCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
-            offCtx.strokeStyle = "#000";
-            offCtx.lineWidth = 1;
-            offCtx.beginPath();
-            if (cz.y > 0) {
-                offCtx.moveTo(0, cz.y); offCtx.lineTo(400, cz.y);
+            if (cz.overlay) {
+                if (captionEl.value.trim()) {
+                    offCtx.fillStyle = "#fff";
+                    offCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+                    offCtx.strokeStyle = "#000";
+                    offCtx.lineWidth = 1;
+                    offCtx.beginPath();
+                    offCtx.moveTo(0, cz.y); offCtx.lineTo(400, cz.y);
+                    offCtx.stroke();
+                    renderCaption(captionEl.value, offCtx, cz);
+                }
             } else {
-                offCtx.moveTo(cz.x, 0); offCtx.lineTo(cz.x, 300);
+                offCtx.fillStyle = "#fff";
+                offCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
+                offCtx.strokeStyle = "#000";
+                offCtx.lineWidth = 1;
+                offCtx.beginPath();
+                if (cz.y > 0) {
+                    offCtx.moveTo(0, cz.y); offCtx.lineTo(400, cz.y);
+                } else {
+                    offCtx.moveTo(cz.x, 0); offCtx.lineTo(cz.x, 300);
+                }
+                offCtx.stroke();
+                renderCaption(captionEl.value, offCtx, cz);
             }
-            offCtx.stroke();
-            renderCaption(captionEl.value, offCtx, tpl.cap);
         }
 
         const buf = packEink(off);
