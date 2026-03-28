@@ -103,7 +103,6 @@
         #undo-btn {
             top: 6px;
             left: 6px;
-            font-size: 1rem;
             display: none;
         }
         #undo-btn.visible { display: flex; }
@@ -296,7 +295,7 @@
     <!-- Preview canvas (also the draw surface) -->
     <div class="preview-wrap">
         <canvas id="preview" width="400" height="300"></canvas>
-        <button id="undo-btn"      class="canvas-overlay-btn visible" title="Undo (Ctrl+Z)" disabled>&#x21A9;</button>
+        <button id="undo-btn"      class="canvas-overlay-btn visible" title="Undo (Ctrl+Z)" disabled><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,1.5 1.5,4 4,6.5"/><path d="M1.5 4 Q1.5 11 10.5 11"/></svg></button>
         <button id="clear-all-btn" class="canvas-overlay-btn" title="Clear all">&#x2715;</button>
     </div>
 
@@ -1088,11 +1087,6 @@
                 if (captionEl.value.trim()) {
                     pCtx.fillStyle = "#fff";
                     pCtx.fillRect(cz.x, cz.y, cz.w, cz.h);
-                    pCtx.strokeStyle = "#000";
-                    pCtx.lineWidth = 1;
-                    pCtx.beginPath();
-                    pCtx.moveTo(0, cz.y); pCtx.lineTo(400, cz.y);
-                    pCtx.stroke();
                     renderCaption(captionEl.value, pCtx, cz);
                 }
             } else {
