@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-ink Dashboard</title>
+    <title>Kin</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="e-ink">
+    <meta name="apple-mobile-web-app-title" content="Kin">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -222,14 +224,14 @@
             color: #444;
         }
 
-        .eink-frame {
+        .kin-frame {
             background: #c8c8c0;
             border-radius: 8px;
             padding: 10px;
             box-shadow: 0 0 0 1px #222, inset 0 2px 6px rgba(0,0,0,0.4);
         }
 
-        #eink-preview {
+        #kin-preview {
             display: block;
             width: 100%;
             aspect-ratio: 400/300;
@@ -252,7 +254,7 @@
 <body>
 
     <div class="header">
-        <h1>e-ink Dashboard</h1>
+        <img src="kin_logo.png" alt="Kin" style="height:36px;">
         <div id="status">Connecting...</div>
     </div>
 
@@ -342,8 +344,8 @@
         <!-- Right: e-ink preview -->
         <div class="right-col">
             <div class="preview-label">E-ink Preview (400x300)</div>
-            <div class="eink-frame">
-                <canvas id="eink-preview" width="400" height="300"></canvas>
+            <div class="kin-frame">
+                <canvas id="kin-preview" width="400" height="300"></canvas>
             </div>
             <div class="preview-note">dithered / what the display will show</div>
         </div>
@@ -353,13 +355,13 @@
     <canvas id="render-canvas" width="400" height="300" style="display:none"></canvas>
 
     <script>
-        const TOPIC        = "e_ink_link/message/675072780505b8dc19b65928";
+        const TOPIC        = "kin/message/675072780505b8dc19b65928";
         const CHUNK_BYTES  = 3000;
         const TOTAL_CHUNKS = 5;
 
         // ---- MQTT ----
         const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
-            clientId: "eink_dash_" + Math.random().toString(16).slice(2, 8)
+            clientId: "kin_dash_" + Math.random().toString(16).slice(2, 8)
         });
         const statusEl = document.getElementById("status");
         const pushBtn  = document.getElementById("push-btn");
@@ -561,8 +563,8 @@
         }
 
         async function fetchCommute() {
-            const origin = localStorage.getItem("eink_origin");
-            const dest   = localStorage.getItem("eink_dest");
+            const origin = localStorage.getItem("kin_origin");
+            const dest   = localStorage.getItem("kin_dest");
             if (!origin || !dest) return;
             document.getElementById("w-commute-sub").textContent = "Calculating...";
             try {
@@ -619,7 +621,7 @@
             ctx.textAlign = "center";
             lines.forEach((l, i) => ctx.fillText(l, W / 2, startY + i * lineHeight));
 
-            updateEinkPreview(rc);
+            updateKinPreview(rc);
         }
 
         // ---- Render e-ink canvas ----
@@ -794,12 +796,12 @@
             }
 
             // Copy to preview
-            updateEinkPreview(rc);
+            updateKinPreview(rc);
         }
 
         // ---- Threshold render canvas -> preview canvas (no dithering for clean graphics) ----
-        function updateEinkPreview(src) {
-            const pc   = document.getElementById("eink-preview");
+        function updateKinPreview(src) {
+            const pc   = document.getElementById("kin-preview");
             const rctx = src.getContext("2d");
             const pctx = pc.getContext("2d");
 
@@ -877,25 +879,25 @@
         });
 
         // ---- Settings ----
-        document.getElementById("origin").value      = localStorage.getItem("eink_origin") || "";
-        document.getElementById("destination").value = localStorage.getItem("eink_dest")   || "";
+        document.getElementById("origin").value      = localStorage.getItem("kin_origin") || "";
+        document.getElementById("destination").value = localStorage.getItem("kin_dest")   || "";
         document.getElementById("save-btn").addEventListener("click", () => {
             const origin = document.getElementById("origin").value.trim();
             const dest   = document.getElementById("destination").value.trim();
-            localStorage.setItem("eink_origin", origin);
-            localStorage.setItem("eink_dest",   dest);
+            localStorage.setItem("kin_origin", origin);
+            localStorage.setItem("kin_dest",   dest);
             publishConfig({ commute_origin: origin, commute_dest: dest });
             fetchCommute();
         });
 
         // ---- Team settings ----
-        teamLeague = localStorage.getItem("eink_team_league") || "mens-college-basketball";
+        teamLeague = localStorage.getItem("kin_team_league") || "mens-college-basketball";
         document.getElementById("team-league").value = teamLeague;
         document.getElementById("team-league").addEventListener("change", () => {
             teamLeague = document.getElementById("team-league").value;
-            localStorage.setItem("eink_team_league", teamLeague);
+            localStorage.setItem("kin_team_league", teamLeague);
         });
-        document.getElementById("team-input").value = localStorage.getItem("eink_team_name") || "";
+        document.getElementById("team-input").value = localStorage.getItem("kin_team_name") || "";
         document.getElementById("team-save-btn").addEventListener("click", async () => {
             const input = document.getElementById("team-input").value.trim();
             const statusEl = document.getElementById("team-status");
@@ -907,8 +909,8 @@
                 if (!t) { statusEl.textContent = "Team not found."; statusEl.style.color = "#f87171"; return; }
                 teamId   = t.id;
                 teamName = t.shortDisplayName || t.displayName;
-                localStorage.setItem("eink_team_id",   teamId);
-                localStorage.setItem("eink_team_name", teamName);
+                localStorage.setItem("kin_team_id",   teamId);
+                localStorage.setItem("kin_team_name", teamName);
                 publishConfig({ team: teamName, league: teamLeague });
                 statusEl.textContent = `Found: ${t.displayName}`;
                 statusEl.style.color = "#4ade80";
@@ -920,8 +922,8 @@
         });
 
         // ---- Init ----
-        teamId   = localStorage.getItem("eink_team_id")   || null;
-        teamName = localStorage.getItem("eink_team_name") || "";
+        teamId   = localStorage.getItem("kin_team_id")   || null;
+        teamName = localStorage.getItem("kin_team_name") || "";
         if (teamName) document.getElementById("team-name-display").textContent = teamName;
         getLocation();
         fetchCommute();

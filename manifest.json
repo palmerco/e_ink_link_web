@@ -1,7 +1,7 @@
 {
-    "name": "e-ink Dashboard",
-    "short_name": "e-ink",
-    "description": "e-ink display controller and status dashboard",
+    "name": "Kin",
+    "short_name": "Kin",
+    "description": "Kin display controller",
     "start_url": "./dashboard.html",
     "display": "standalone",
     "background_color": "#0a0a0a",

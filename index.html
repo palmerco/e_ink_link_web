@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-ink</title>
+    <title>Kin</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -260,7 +263,7 @@
 <body>
 <div class="page">
     <header>
-        <h1>e-ink</h1>
+        <img src="kin_logo.png" alt="Kin" style="height:32px;">
         <div id="status">Connecting...</div>
     </header>
 
@@ -341,7 +344,7 @@
             </div>
         </div>
 
-        <button id="send" disabled>Send to Display</button>
+        <button id="send" disabled>Send a Reach</button>
     </div>
 </div>
 
@@ -349,7 +352,7 @@
 <canvas id="draw-source" width="400" height="300"></canvas>
 
 <script>
-    const TOPIC        = "e_ink_link/message/675072780505b8dc19b65928";
+    const TOPIC        = "kin/message/675072780505b8dc19b65928";
     const CHUNK_BYTES  = 3000;
     const TOTAL_CHUNKS = 5;
 
@@ -370,7 +373,7 @@
     }
 
     const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
-        clientId: "e_ink_web_" + Math.random().toString(16).slice(2, 8)
+        clientId: "kin_web_" + Math.random().toString(16).slice(2, 8)
     });
 
     const statusEl  = document.getElementById("status");
